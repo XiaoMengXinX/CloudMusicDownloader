@@ -19,9 +19,9 @@ import (
 )
 
 // var _163key = flag.String("dec", "", "Decode 163 key")
-var _playlistID = flag.Int("p", 0, "要批量下载的歌单ID （必填）")
-var _MUSIC_U = flag.String("MUSIC_U", "", "账号cookie中的MUSIC_U （必填）")
-var _concurrent = flag.Int("c", 4, "并发下载任务数量 （选填，默认为4）")
+var _playlistID = flag.Int("p", 0, "要批量下载的歌单ID (必填)")
+var _MUSIC_U = flag.String("MUSIC_U", "", "账号cookie中的MUSIC_U (必填)")
+var _concurrent = flag.Int("c", 4, "并发下载任务数量 (选填, 默认为4. 并发任务越多占用内存越大)")
 
 var d *downloader
 var p *mpb.Progress
@@ -41,13 +41,12 @@ func (s *LogFormatter) Format(entry *log.Entry) ([]byte, error) {
 
 func init() {
 	flag.Parse()
-
-	logFile := fmt.Sprintf("./downloader.log")
-	file, err := os.OpenFile(logFile, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
+	logDir := fmt.Sprintf("./downloader.log")
+	logFile, err := os.OpenFile(logDir, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 	if err != nil {
 		log.Error(err)
 	}
-	output := io.MultiWriter(file, os.Stdout)
+	output := io.MultiWriter(logFile, os.Stdout)
 	log.SetOutput(output)
 	log.SetFormatter(&log.TextFormatter{
 		DisableColors:          false,
@@ -129,9 +128,11 @@ func main() {
 				}
 			}()
 		}
+		time.Sleep(time.Duration(500) * time.Microsecond)
 	}
 	p.Wait()
 	d.WG.Wait()
+	log.Println("下载完成，共下载 %d 首歌曲", downloadNum)
 }
 
 func start(d *downloader, a int) (err error) {
@@ -177,6 +178,7 @@ func start(d *downloader, a int) (err error) {
 			}
 		}
 	}
+	log.Printf("[%s] 下载完成", d.resources[a].Filename)
 	d.WG.Done()
 	return
 }
@@ -224,9 +226,9 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 				false)
 			d.appendResource(
 				PicDir,
-				fmt.Sprintf("%s%s", songDetail.Api.Songs[0].Al.PicStr, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
+				fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
 				songDetail.Api.Songs[0].Al.PicUrl,
-				songDetail.Api.Songs[0].Al.PicStr,
+				fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
 				path.Ext(songDetail.Api.Songs[0].Al.PicUrl),
 				types.SongDetailData{},
 				types.SongURLData{},
