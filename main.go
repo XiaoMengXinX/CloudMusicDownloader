@@ -127,6 +127,7 @@ func main() {
 					log.Errorln(err)
 				}
 			}()
+			time.Sleep(time.Duration(500) * time.Microsecond)
 		}
 		time.Sleep(time.Duration(500) * time.Microsecond)
 	}
@@ -234,6 +235,7 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 				types.SongURLData{},
 				true)
 		}
+		time.Sleep(time.Duration(500) * time.Microsecond)
 	}
 	return
 }
