@@ -46,7 +46,7 @@ func init() {
 	if err != nil {
 		log.Error(err)
 	}
-	output := io.MultiWriter(logFile, os.Stdout)
+	output := io.MultiWriter(logFile)
 	log.SetOutput(output)
 	log.SetFormatter(&log.TextFormatter{
 		DisableColors:          false,
@@ -58,6 +58,7 @@ func init() {
 	log.SetReportCaller(true)
 
 	if *_playlistID == 0 || *_MUSIC_U == "" {
+		fmt.Println("参数缺失，请检查是否正确传入 歌单ID 和 MUSIC_U")
 		log.Fatal("参数缺失，请检查是否正确传入 歌单ID 和 MUSIC_U")
 	}
 
@@ -89,14 +90,17 @@ func main() {
 
 	loginStat, _ := api.GetLoginStatus(data)
 	if loginStat.Account.Id == 0 {
+		fmt.Println("获取账号登录状态失败，请检查 MUSIC_U 是否有效")
 		log.Fatal("获取账号登录状态失败，请检查 MUSIC_U 是否有效")
 	} else {
+		fmt.Printf("[%s] 获取账号登录状态成功", loginStat.Profile.Nickname)
 		log.Printf("[%s] 获取账号登录状态成功", loginStat.Profile.Nickname)
 		time.Sleep(time.Duration(2) * time.Second)
 	}
 
 	playListDetail, err := api.GetPlaylistDetail(data, *_playlistID)
 	if err != nil {
+		fmt.Println("获取歌单信息失败")
 		log.Fatal("获取歌单信息失败")
 	}
 	go func() {
@@ -127,13 +131,14 @@ func main() {
 					log.Errorln(err)
 				}
 			}()
-			time.Sleep(time.Duration(500) * time.Microsecond)
+			time.Sleep(time.Duration(200) * time.Millisecond)
 		}
-		time.Sleep(time.Duration(500) * time.Microsecond)
+		time.Sleep(time.Duration(200) * time.Millisecond)
 	}
 	p.Wait()
 	d.WG.Wait()
-	log.Println("下载完成，共下载 %d 首歌曲", downloadNum)
+	log.Printf("下载完成，共下载 %d 首歌曲", downloadNum)
+	fmt.Printf("下载完成，共下载 %d 首歌曲", downloadNum)
 }
 
 func start(d *downloader, a int) (err error) {
@@ -235,7 +240,7 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 				types.SongURLData{},
 				true)
 		}
-		time.Sleep(time.Duration(500) * time.Microsecond)
+		time.Sleep(time.Duration(200) * time.Millisecond)
 	}
 	return
 }

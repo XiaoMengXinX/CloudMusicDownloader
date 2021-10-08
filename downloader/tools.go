@@ -1,31 +1,11 @@
 package downloader
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"github.com/XiaoMengXinX/Music163Api-Go/types"
 	"github.com/XiaoMengXinX/Music163Api-Go/utils"
-	"strconv"
 )
-
-func bytesToHexString(src []byte) string {
-	res := bytes.Buffer{}
-	if src == nil || len(src) <= 0 {
-		return ""
-	}
-	temp := make([]byte, 0)
-	for _, v := range src {
-		sub := v & 0xFF
-		hv := hex.EncodeToString(append(temp, sub))
-		if len(hv) < 2 {
-			res.WriteString(strconv.FormatInt(int64(0), 10))
-		}
-		res.WriteString(hv)
-	}
-	return res.String()
-}
 
 // ParseArtist 解析歌手数据
 func ParseArtist(songDetail types.SongDetailData) string {

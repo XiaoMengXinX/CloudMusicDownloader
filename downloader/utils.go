@@ -12,7 +12,7 @@ import (
 	"github.com/go-flac/go-flac"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"strings"
+	"net/http"
 )
 
 // AddMp3Id3v2 添加 mp3 的 id3v2 信息
@@ -42,24 +42,15 @@ func AddMp3Id3v2(musicPath, picPath, musicMarker string, songDetail types.SongDe
 		if err != nil {
 			return fmt.Errorf("Error while reading AlbumPic: %v ", err)
 		}
-		var mime string
-		fileCode := bytesToHexString(artwork[:32])
-		if strings.HasPrefix(fileCode, "ffd8ffe000104a464946") {
-			mime = "image/jpeg"
+		mime := http.DetectContentType(artwork[:32])
+		pic := id3v2.PictureFrame{
+			Encoding:    id3v2.EncodingISO,
+			MimeType:    mime,
+			PictureType: id3v2.PTFrontCover,
+			Description: "Front cover",
+			Picture:     artwork,
 		}
-		if strings.HasPrefix(fileCode, "89504e470d0a1a0a0000") {
-			mime = "image/png"
-		}
-		if mime != "" {
-			pic := id3v2.PictureFrame{
-				Encoding:    id3v2.EncodingISO,
-				MimeType:    mime,
-				PictureType: id3v2.PTFrontCover,
-				Description: "Front cover",
-				Picture:     artwork,
-			}
-			musicTag.AddAttachedPicture(pic)
-		}
+		musicTag.AddAttachedPicture(pic)
 	}
 	if err := musicTag.Save(); err != nil {
 		return fmt.Errorf("Error: %v ", err)
@@ -73,49 +64,42 @@ func AddFlacId3v2(musicPath, picPath, musicMarker string, songDetail types.SongD
 	if err != nil {
 		return err
 	}
-	cmts := flacvorbis.New()
+	tag := flacvorbis.New()
 
 	if picPath != "" {
 		artwork, err := ioutil.ReadFile(picPath)
 		if err != nil {
 			return err
 		}
-		var mime string
-		fileCode := bytesToHexString(artwork)
-		if strings.HasPrefix(fileCode, "ffd8ffe000104a464946") {
-			mime = "image/jpeg"
+		mime := http.DetectContentType(artwork[:32])
+		picture, err := flacpicture.NewFromImageData(flacpicture.PictureTypeFrontCover, "Front cover", artwork, mime)
+		if err == nil {
+			pictureMeta := picture.Marshal()
+			file.Meta = append(file.Meta, &pictureMeta)
 		}
-		if strings.HasPrefix(fileCode, "89504e470d0a1a0a0000") {
-			mime = "image/png"
-		}
-		if mime != "" {
-			picture, err := flacpicture.NewFromImageData(flacpicture.PictureTypeFrontCover, "Front cover", artwork, mime)
-			if err == nil {
-				picturemeta := picture.Marshal()
-				file.Meta = append(file.Meta, &picturemeta)
-			}
-		}
+
 	}
 
-	_ = cmts.Add(flacvorbis.FIELD_TITLE, songDetail.Name)
-	_ = cmts.Add(flacvorbis.FIELD_ARTIST, ParseArtist(songDetail))
+	_ = tag.Add(flacvorbis.FIELD_TITLE, songDetail.Name)
+	_ = tag.Add(flacvorbis.FIELD_ARTIST, ParseArtist(songDetail))
 	if songDetail.Al.Name != "" {
-		_ = cmts.Add(flacvorbis.FIELD_ALBUM, songDetail.Al.Name)
+		_ = tag.Add(flacvorbis.FIELD_ALBUM, songDetail.Al.Name)
 	}
-	_ = cmts.Add(flacvorbis.FIELD_DESCRIPTION, musicMarker)
+	_ = tag.Add(flacvorbis.FIELD_DESCRIPTION, musicMarker)
 
-	block := cmts.Marshal()
-	var idx = -1
+	tagMeta := tag.Marshal()
+
+	var idx int
 	for i, m := range file.Meta {
 		if m.Type == flac.VorbisComment {
 			idx = i
 			break
 		}
 	}
-	if idx == -1 {
-		file.Meta = append(file.Meta, &block)
+	if idx > 0 {
+		file.Meta[idx] = &tagMeta
 	} else {
-		file.Meta[idx] = &block
+		file.Meta = append(file.Meta, &tagMeta)
 	}
 
 	err = file.Save(musicPath)
