@@ -13,6 +13,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"strings"
 )
 
 // AddMp3Id3v2 添加 mp3 的 id3v2 信息
@@ -31,8 +33,8 @@ func AddMp3Id3v2(musicPath, picPath, musicMarker string, songDetail types.SongDe
 		musicTag.SetAlbum(songDetail.Al.Name)
 	}
 	comment := id3v2.CommentFrame{
-		Encoding:    id3v2.EncodingUTF8,
-		Language:    "eng",
+		Encoding:    id3v2.EncodingISO,
+		Language:    "chs",
 		Description: "",
 		Text:        musicMarker,
 	}
@@ -108,6 +110,80 @@ func AddFlacId3v2(musicPath, picPath, musicMarker string, songDetail types.SongD
 	}
 
 	return err
+}
+
+func ReadMp3Key(filePath string) (marker MarkerData, err error) {
+	tag, err := id3v2.Open(filePath, id3v2.Options{Parse: true})
+	if err != nil {
+		return marker, err
+	}
+	defer func(tag *id3v2.Tag) {
+		err := tag.Close()
+		if err != nil {
+			log.Errorln(err)
+		}
+	}(tag)
+
+	var comment string
+	frames := tag.GetFrames(tag.CommonID("Comments"))
+	if len(frames) != 0 {
+		val, ok := frames[0].(id3v2.CommentFrame)
+		if !ok {
+			return marker, fmt.Errorf("File :\"%s\" Couldn't assert comment frame ", filePath)
+		}
+		comment = val.Text
+	}
+
+	if strings.Contains(comment, "163 key(Don't modify):") {
+		markerText := strings.Replace(comment, "163 key(Don't modify):", "", 1)
+		markerJson := strings.Replace(Decrypt163key(markerText), "music:", "", 1)
+		var marker MarkerData
+		_ = json.Unmarshal([]byte(markerJson), &marker)
+		return marker, err
+	}
+
+	return marker, fmt.Errorf("File :\"%s\" Invaid Comment Frame ", filePath)
+}
+
+func ReadFlacKey(filePath string) (marker MarkerData, err error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return marker, err
+	}
+	flacFile, err := flac.ParseMetadata(file)
+	if err != nil {
+		return marker, err
+	}
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			log.Errorln(err)
+		}
+	}(file)
+
+	var tag *flacvorbis.MetaDataBlockVorbisComment
+	for _, meta := range flacFile.Meta {
+		if meta.Type == flac.VorbisComment {
+			tag, err = flacvorbis.ParseFromMetaDataBlock(*meta)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}
+
+	comment, err := tag.Get("DESCRIPTION")
+	if err != nil {
+		return marker, err
+	}
+	if strings.Contains(comment[0], "163 key(Don't modify):") && len(comment) != 0 {
+		markerText := strings.Replace(comment[0], "163 key(Don't modify):", "", 1)
+		markerJson := strings.Replace(Decrypt163key(markerText), "music:", "", 1)
+		var marker MarkerData
+		_ = json.Unmarshal([]byte(markerJson), &marker)
+		return marker, err
+	}
+
+	return marker, fmt.Errorf("File :\"%s\" Invaid Comment Frame ", filePath)
 }
 
 // CreateMarker 格式化 marker 信息

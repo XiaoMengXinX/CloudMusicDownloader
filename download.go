@@ -27,6 +27,7 @@ type resource struct {
 	Type               string
 	Name               string
 	Filename           string
+	ReadName           string
 	Url                string
 	SongDetail         types.SongDetailData
 	SongURL            types.SongURLData
@@ -49,10 +50,11 @@ func newDownloader() *downloader {
 	}
 }
 
-func (d *downloader) appendResource(dir, filename, url, name, filetype string, SongDetail types.SongDetailData, SongURL types.SongURLData, isBarDisabled bool) {
+func (d *downloader) appendResource(dir, filename, readname, url, name, filetype string, SongDetail types.SongDetailData, SongURL types.SongURLData, isBarDisabled bool) {
 	d.resources = append(d.resources, resource{
 		TargetDir:          dir,
 		Filename:           filename,
+		ReadName:           readname,
 		Url:                url,
 		Name:               name,
 		Type:               filetype,
@@ -65,6 +67,14 @@ func (d *downloader) appendResource(dir, filename, url, name, filetype string, S
 func (d *downloader) download(resource resource, progress *mpb.Progress) error {
 	d.Pool <- &resource
 	finalPath := resource.TargetDir + "/" + resource.Filename
+
+	if fileExist(finalPath + ".tmp") {
+		err := os.Remove(finalPath + ".tmp")
+		if err != nil {
+			return err
+		}
+	}
+
 	// 创建临时文件
 	target, err := os.Create(finalPath + ".tmp")
 	if err != nil {
