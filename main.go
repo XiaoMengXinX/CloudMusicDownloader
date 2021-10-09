@@ -113,7 +113,7 @@ func main() {
 	go func() {
 		for true {
 			fmt.Printf("\x1bc")
-			time.Sleep(time.Duration(2) * time.Second)
+			time.Sleep(time.Duration(5) * time.Second)
 		}
 	}()
 
