@@ -112,6 +112,7 @@ func AddFlacId3v2(musicPath, picPath, musicMarker string, songDetail types.SongD
 	return err
 }
 
+// ReadMp3Key 解析 mp3 文件的 163Key
 func ReadMp3Key(filePath string) (marker MarkerData, err error) {
 	tag, err := id3v2.Open(filePath, id3v2.Options{Parse: true})
 	if err != nil {
@@ -145,6 +146,7 @@ func ReadMp3Key(filePath string) (marker MarkerData, err error) {
 	return marker, fmt.Errorf("File :\"%s\" Invaid Comment Frame ", filePath)
 }
 
+// ReadFlacKey 解析 flac 文件的 163Key
 func ReadFlacKey(filePath string) (marker MarkerData, err error) {
 	file, err := os.Open(filePath)
 	if err != nil {
