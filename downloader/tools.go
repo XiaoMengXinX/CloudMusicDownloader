@@ -23,5 +23,5 @@ func ParseArtist(songDetail types.SongDetailData) string {
 // Decrypt163key 解码 163 key
 func Decrypt163key(encrypted string) (decrypted string) {
 	data, _ := base64.StdEncoding.DecodeString(encrypted)
-	return string(utils.MarkerAesDecryptECB(data))
+	return string(utils.MarkerDecrypt(data))
 }

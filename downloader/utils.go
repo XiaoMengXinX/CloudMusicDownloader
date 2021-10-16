@@ -217,7 +217,7 @@ func CreateMarker(songDetail types.SongDetailData, songUrl types.SongURLData) (m
 	if err != nil {
 		return "", err
 	}
-	decryptedMarker := base64.StdEncoding.EncodeToString(utils.MarkerAesEncryptECB(fmt.Sprintf("music:%s", string(markerJson))))
+	decryptedMarker := base64.StdEncoding.EncodeToString(utils.MarkerEncrypt(fmt.Sprintf("music:%s", string(markerJson))))
 	markerText = fmt.Sprintf("163 key(Don't modify):%s", decryptedMarker)
 	return markerText, fmt.Errorf("SongDetail 与 SongUrl 元素数量不相等")
 }

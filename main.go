@@ -240,10 +240,10 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 		b.Init()
 		b.Add(
 			api.BatchAPI{
-				Key:  api.SongDetail,
+				Key:  api.SongDetailAPI,
 				Json: api.CreateSongDetailReqJson([]int{songID}),
 			}, api.BatchAPI{
-				Key:  api.SongURL,
+				Key:  api.SongUrlAPI,
 				Json: api.CreateSongURLJson(songURLConfig),
 			},
 		)
@@ -349,7 +349,7 @@ func checkMusic(data utils.RequestData) types.PlaylistDetailData {
 			Id         int         `json:"id"`
 			V          int         `json:"v"`
 			T          int         `json:"t"`
-			At         int64       `json:"at"`
+			At         int         `json:"at"`
 			Alg        interface{} `json:"alg"`
 			Uid        int         `json:"uid"`
 			RcmdReason string      `json:"rcmdReason"`
