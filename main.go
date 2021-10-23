@@ -236,9 +236,7 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 		if *_mp3 {
 			songURLConfig.Level = "higher"
 		}
-		var b api.Batch
-		b.Init()
-		b.Add(
+		b := api.NewBatch(
 			api.BatchAPI{
 				Key:  api.SongDetailAPI,
 				Json: api.CreateSongDetailReqJson([]int{songID}),
