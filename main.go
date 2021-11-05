@@ -9,8 +9,15 @@ import (
 	"github.com/XiaoMengXinX/Music163Api-Go/api"
 	"github.com/XiaoMengXinX/Music163Api-Go/types"
 	"github.com/XiaoMengXinX/Music163Api-Go/utils"
+	"github.com/nfnt/resize"
 	log "github.com/sirupsen/logrus"
 	"github.com/vbauerster/mpb/v5"
+	"image"
+	"image/jpeg"
+	// 解析 gif 图片信息
+	_ "image/gif"
+	// 解析 png 图片信息
+	_ "image/png"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -152,7 +159,7 @@ func main() {
 					log.Errorln(err)
 				}
 			}()
-			time.Sleep(time.Duration(200) * time.Millisecond)
+			time.Sleep(time.Duration(100) * time.Millisecond)
 		}
 		if processNum == len(playListDetail.Playlist.TrackIds) && i*2 == len(d.resources) {
 			break
@@ -180,15 +187,27 @@ func start(d *downloader, a int) (err error) {
 	downloadNum = downloadNum + 1
 	marker, _ := dl.CreateMarker(d.resources[a].SongDetail, d.resources[a].SongURL)
 	format := strings.Replace(path.Ext(d.resources[a].ReadName), ".", "", -1)
+
+	picPath := d.resources[a+1].TargetDir + "/" + d.resources[a+1].Filename
+	picStat, _ := os.Stat(picPath)
+	if picStat.Size() > 2*1024*1024 {
+		resizePath, err := resizePic(picPath)
+		if err == nil {
+			picPath = resizePath
+		} else {
+			log.Errorln(err)
+		}
+	}
+
 	if fileExist(d.resources[a].TargetDir+"/"+d.resources[a].Filename) && fileExist(d.resources[a+1].TargetDir+"/"+d.resources[a+1].Filename) {
 		switch format {
 		case "flac":
-			err := dl.AddFlacId3v2(d.resources[a].TargetDir+"/"+d.resources[a].Filename, d.resources[a+1].TargetDir+"/"+d.resources[a+1].Filename, marker, d.resources[a].SongDetail)
+			err := dl.AddFlacId3v2(d.resources[a].TargetDir+"/"+d.resources[a].Filename, picPath, marker, d.resources[a].SongDetail)
 			if err != nil {
 				return err
 			}
 		case "mp3":
-			err := dl.AddMp3Id3v2(d.resources[a].TargetDir+"/"+d.resources[a].Filename, d.resources[a+1].TargetDir+"/"+d.resources[a+1].Filename, marker, d.resources[a].SongDetail)
+			err := dl.AddMp3Id3v2(d.resources[a].TargetDir+"/"+d.resources[a].Filename, picPath, marker, d.resources[a].SongDetail)
 			if err != nil {
 				return err
 			}
@@ -244,15 +263,14 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 				Key:  api.SongUrlAPI,
 				Json: api.CreateSongURLJson(songURLConfig),
 			},
-		)
-		result, _, err := b.Do(data)
-		if err != nil {
+		).Do(data)
+		if b.Error != nil {
 			return err
 		}
 		var songDetail types.BatchSongDetailData
 		var songUrl types.BatchSongURLData
-		_ = json.Unmarshal([]byte(result), &songDetail)
-		_ = json.Unmarshal([]byte(result), &songUrl)
+		_ = json.Unmarshal([]byte(b.Result), &songDetail)
+		_ = json.Unmarshal([]byte(b.Result), &songUrl)
 
 		if songUrl.Api.Data[0].Url != "" && songDetail.Api.Songs[0].Al.PicUrl != "" {
 			d.appendResource(
@@ -280,7 +298,7 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 		}
 		processNum++
 
-		time.Sleep(time.Duration(200) * time.Millisecond)
+		time.Sleep(time.Duration(50) * time.Millisecond)
 	}
 	return
 }
@@ -356,6 +374,48 @@ func checkMusic(data utils.RequestData) types.PlaylistDetailData {
 		tempPlaylist.Playlist.TrackIds = append(tempPlaylist.Playlist.TrackIds, trackIDs)
 	}
 	return tempPlaylist
+}
+
+func resizePic(picPath string) (resizePath string, err error) {
+	file, err := os.Open(picPath)
+	defer func(file *os.File) {
+		e := file.Close()
+		if e != nil {
+			err = e
+		}
+	}(file)
+	if err != nil {
+		return resizePath, err
+	}
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return resizePath, err
+	}
+
+	m := resize.Resize(0, 800, img, resize.Lanczos3)
+
+	fileDir := path.Dir(picPath)
+	fileNameWithSuffix := path.Base(picPath)
+	fileSuffix := path.Ext(fileNameWithSuffix)
+	fileName := strings.TrimSuffix(fileNameWithSuffix, fileSuffix)
+	resizePath = fmt.Sprintf("%s/%s.resize%s", fileDir, fileName, fileSuffix)
+
+	out, err := os.Create(resizePath)
+	if err != nil {
+		return "", err
+	}
+	defer func(out *os.File) {
+		e := out.Close()
+		if e != nil {
+			err = e
+		}
+	}(out)
+
+	err = jpeg.Encode(out, m, nil)
+	if err != nil {
+		return "", err
+	}
+	return resizePath, err
 }
 
 func intersect(slice1, slice2 []int) []int {
