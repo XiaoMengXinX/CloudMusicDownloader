@@ -36,6 +36,7 @@ var _output = flag.String("path", "", "音乐存放目录 (选填, 默认为./mu
 var _concurrent = flag.Int("c", 4, "并发下载任务数量 (选填, 默认为4. 并发任务越多占用内存越大)")
 var _check = flag.Bool("check", false, "扫描目录下的歌曲")
 var _mp3 = flag.Bool("mp3", false, "强制下载mp3格式")
+var _debug = flag.Bool("debug", false, "开启debug日志")
 
 var d *downloader
 var p *mpb.Progress
@@ -78,6 +79,10 @@ func init() {
 	})
 	log.SetFormatter(new(LogFormatter))
 	log.SetReportCaller(true)
+
+	if *_debug {
+		log.SetLevel(log.DebugLevel)
+	}
 
 	if *_playlistID == 0 || *_MUSIC_U == "" {
 		fmt.Println("参数缺失，请检查是否正确传入 歌单ID 和 MUSIC_U")
@@ -124,6 +129,7 @@ func main() {
 	d.Concurrent = *_concurrent
 	d.Pool = make(chan *resource, d.Concurrent)
 	p = mpb.New(mpb.WithWaitGroup(d.WG))
+	processNum := *_offset
 
 	if len(playListDetail.Playlist.TrackIds) == 0 {
 		tempPlaylist, err := api.GetPlaylistDetail(data, *_playlistID)
@@ -135,13 +141,6 @@ func main() {
 	}
 
 	go func() {
-		err := getPlaylistMusic(data, playListDetail)
-		if err != nil {
-			log.Errorln(err)
-		}
-	}()
-
-	go func() {
 		for true {
 			fmt.Printf("\x1bc")
 			time.Sleep(time.Duration(5) * time.Second)
@@ -150,6 +149,18 @@ func main() {
 
 	i := 0
 	for true {
+		if processNum == len(playListDetail.Playlist.TrackIds) && i*2 == len(d.resources) {
+			break
+		}
+		time.Sleep(time.Duration(10) * time.Millisecond)
+
+		if processNum < len(playListDetail.Playlist.TrackIds) && len(d.resources)/2-downloadNum <= 10 {
+			err := getPlaylistMusic(data, playListDetail)
+			if err != nil {
+				log.Errorln(err)
+			}
+		}
+
 		for ; i*2 < len(d.resources)-1; i++ {
 			d.WG.Add(1)
 			a := i * 2
@@ -159,12 +170,8 @@ func main() {
 					log.Errorln(err)
 				}
 			}()
-			time.Sleep(time.Duration(100) * time.Millisecond)
+			time.Sleep(time.Duration(10) * time.Millisecond)
 		}
-		if processNum == len(playListDetail.Playlist.TrackIds) && i*2 == len(d.resources) {
-			break
-		}
-		time.Sleep(time.Duration(100) * time.Millisecond)
 	}
 	p.Wait()
 	d.WG.Wait()
@@ -245,61 +252,56 @@ func start(d *downloader, a int) (err error) {
 func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetailData) (err error) {
 	var songID int
 	var replacer = strings.NewReplacer("/", " ", "?", " ", "*", " ", ":", " ", "|", " ", "\\", " ", "<", " ", ">", " ", "\"", " ")
-	for processNum = *_offset; processNum < len(playListDetail.Playlist.TrackIds); {
-		if len(d.resources)/2-downloadNum > 10 {
-			continue
-		}
 
-		songID = playListDetail.Playlist.TrackIds[processNum].Id
-		songURLConfig := api.SongURLConfig{Ids: []int{songID}}
-		if *_mp3 {
-			songURLConfig.Level = "higher"
-		}
-		b := api.NewBatch(
-			api.BatchAPI{
-				Key:  api.SongDetailAPI,
-				Json: api.CreateSongDetailReqJson([]int{songID}),
-			}, api.BatchAPI{
-				Key:  api.SongUrlAPI,
-				Json: api.CreateSongURLJson(songURLConfig),
-			},
-		).Do(data)
-		if b.Error != nil {
-			return err
-		}
-		var songDetail types.BatchSongDetailData
-		var songUrl types.BatchSongURLData
-		_ = json.Unmarshal([]byte(b.Result), &songDetail)
-		_ = json.Unmarshal([]byte(b.Result), &songUrl)
-
-		if songUrl.Api.Data[0].Url != "" && songDetail.Api.Songs[0].Al.PicUrl != "" {
-			d.appendResource(
-				MusicDir,
-				replacer.Replace(fmt.Sprintf("%s - %s.%s.download", dl.ParseArtist(songDetail.Api.Songs[0]), songDetail.Api.Songs[0].Name, songUrl.Api.Data[0].Type)),
-				replacer.Replace(fmt.Sprintf("%s - %s.%s", dl.ParseArtist(songDetail.Api.Songs[0]), songDetail.Api.Songs[0].Name, songUrl.Api.Data[0].Type)),
-				songUrl.Api.Data[0].Url,
-				songDetail.Api.Songs[0].Name,
-				songUrl.Api.Data[0].Type,
-				songDetail.Api.Songs[0],
-				songUrl.Api.Data[0],
-				false)
-			d.appendResource(
-				PicDir,
-				fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
-				fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
-				songDetail.Api.Songs[0].Al.PicUrl,
-				fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
-				path.Ext(songDetail.Api.Songs[0].Al.PicUrl),
-				types.SongDetailData{},
-				types.SongURLData{},
-				true)
-		} else {
-			failedNum++
-		}
-		processNum++
-
-		time.Sleep(time.Duration(50) * time.Millisecond)
+	songID = playListDetail.Playlist.TrackIds[processNum].Id
+	songURLConfig := api.SongURLConfig{Ids: []int{songID}}
+	if *_mp3 {
+		songURLConfig.Level = "higher"
 	}
+	b := api.NewBatch(
+		api.BatchAPI{
+			Key:  api.SongDetailAPI,
+			Json: api.CreateSongDetailReqJson([]int{songID}),
+		}, api.BatchAPI{
+			Key:  api.SongUrlAPI,
+			Json: api.CreateSongURLJson(songURLConfig),
+		},
+	).Do(data)
+	if b.Error != nil {
+		return err
+	}
+	var songDetail types.BatchSongDetailData
+	var songUrl types.BatchSongURLData
+	_ = json.Unmarshal([]byte(b.Result), &songDetail)
+	_ = json.Unmarshal([]byte(b.Result), &songUrl)
+
+	if songUrl.Api.Data[0].Url != "" && songDetail.Api.Songs[0].Al.PicUrl != "" {
+		d.appendResource(
+			MusicDir,
+			replacer.Replace(fmt.Sprintf("%s - %s.%s.download", dl.ParseArtist(songDetail.Api.Songs[0]), songDetail.Api.Songs[0].Name, songUrl.Api.Data[0].Type)),
+			replacer.Replace(fmt.Sprintf("%s - %s.%s", dl.ParseArtist(songDetail.Api.Songs[0]), songDetail.Api.Songs[0].Name, songUrl.Api.Data[0].Type)),
+			songUrl.Api.Data[0].Url,
+			songDetail.Api.Songs[0].Name,
+			songUrl.Api.Data[0].Type,
+			songDetail.Api.Songs[0],
+			songUrl.Api.Data[0],
+			false)
+		d.appendResource(
+			PicDir,
+			fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
+			fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
+			songDetail.Api.Songs[0].Al.PicUrl,
+			fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
+			path.Ext(songDetail.Api.Songs[0].Al.PicUrl),
+			types.SongDetailData{},
+			types.SongURLData{},
+			true)
+	} else {
+		failedNum++
+	}
+	processNum++
+
+	time.Sleep(time.Duration(20) * time.Millisecond)
 	return
 }
 
