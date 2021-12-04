@@ -129,7 +129,7 @@ func main() {
 	d.Concurrent = *_concurrent
 	d.Pool = make(chan *resource, d.Concurrent)
 	p = mpb.New(mpb.WithWaitGroup(d.WG))
-	processNum := *_offset
+	processNum = *_offset
 
 	if len(playListDetail.Playlist.TrackIds) == 0 {
 		tempPlaylist, err := api.GetPlaylistDetail(data, *_playlistID)
@@ -149,21 +149,21 @@ func main() {
 
 	i := 0
 	for true {
-		if processNum == len(playListDetail.Playlist.TrackIds) && i*2 == len(d.resources) {
+		if processNum == len(playListDetail.Playlist.TrackIds) && i == len(d.resources) {
 			break
 		}
 		time.Sleep(time.Duration(10) * time.Millisecond)
 
-		if processNum < len(playListDetail.Playlist.TrackIds) && len(d.resources)/2-downloadNum <= 10 {
+		if processNum < len(playListDetail.Playlist.TrackIds) && len(d.resources)-(downloadNum*2) <= 10*2 {
 			err := getPlaylistMusic(data, playListDetail)
 			if err != nil {
 				log.Errorln(err)
 			}
 		}
 
-		for ; i*2 < len(d.resources)-1; i++ {
+		for i < len(d.resources) {
 			d.WG.Add(1)
-			a := i * 2
+			a := i
 			go func() {
 				err := start(d, a)
 				if err != nil {
@@ -171,7 +171,10 @@ func main() {
 				}
 			}()
 			time.Sleep(time.Duration(10) * time.Millisecond)
+			i = i + 2
+			time.Sleep(time.Duration(10) * time.Millisecond)
 		}
+		//log.Println(downloadNum, len(d.resources), i, failedNum, processNum, len(playListDetail.Playlist.TrackIds))
 	}
 	p.Wait()
 	d.WG.Wait()
@@ -180,6 +183,7 @@ func main() {
 }
 
 func start(d *downloader, a int) (err error) {
+	log.Printf("[%s] 开始下载", d.resources[a].ReadName)
 	defer d.WG.Done()
 	if !fileExist(fmt.Sprintf("%s%s", d.resources[a].SongDetail.Al.PicStr, path.Ext(d.resources[a].SongDetail.Al.PicUrl))) {
 		err = d.download(d.resources[a+1], p)
@@ -297,6 +301,7 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 			types.SongURLData{},
 			true)
 	} else {
+		log.Printf("[%s] 获取封面或下载链接失败, PicURL:%s AudioURL:%s", songDetail.Api.Songs[0].Name, songDetail.Api.Songs[0].Al.PicUrl, songUrl.Api.Data[0].Url)
 		failedNum++
 	}
 	processNum++
