@@ -85,8 +85,8 @@ func init() {
 	}
 
 	if *_playlistID == 0 || *_MUSIC_U == "" {
-		fmt.Println("参数缺失，请检查是否正确传入 歌单ID 和 MUSIC_U")
-		log.Fatal("参数缺失，请检查是否正确传入 歌单ID 和 MUSIC_U")
+		fmt.Println("参数缺失, 请检查是否正确传入 歌单ID 和 MUSIC_U, 使用 -h 查看帮助")
+		log.Fatal("参数缺失, 请检查是否正确传入 歌单ID 和 MUSIC_U")
 	}
 }
 
@@ -110,8 +110,8 @@ func main() {
 
 	loginStat, _ := api.GetLoginStatus(data)
 	if loginStat.Account.Id == 0 {
-		fmt.Println("获取账号登录状态失败，请检查 MUSIC_U 是否有效")
-		log.Fatal("获取账号登录状态失败，请检查 MUSIC_U 是否有效")
+		fmt.Println("获取账号登录状态失败, 请检查 MUSIC_U 是否有效")
+		log.Fatal("获取账号登录状态失败, 请检查 MUSIC_U 是否有效")
 	} else {
 		fmt.Printf("[%s] 获取账号登录状态成功\n", loginStat.Profile.Nickname)
 		log.Printf("[%s] 获取账号登录状态成功", loginStat.Profile.Nickname)
@@ -185,10 +185,19 @@ func main() {
 func start(d *downloader, a int) (err error) {
 	log.Printf("[%s] 开始下载", d.resources[a].ReadName)
 	defer d.WG.Done()
-	if !fileExist(fmt.Sprintf("%s%s", d.resources[a].SongDetail.Al.PicStr, path.Ext(d.resources[a].SongDetail.Al.PicUrl))) {
+	picPath := d.resources[a+1].TargetDir + "/" + d.resources[a+1].Filename
+	if !fileExist(picPath) {
 		err = d.download(d.resources[a+1], p)
 		if err != nil {
 			log.Errorln(err)
+		}
+	}
+	for i := 2; ; i++ {
+		if fileExist(d.resources[a].TargetDir+"/"+d.resources[a].Filename) || fileExist(d.resources[a].TargetDir+"/"+d.resources[a].Filename+".tmp") {
+			d.resources[a].Filename = fmt.Sprintf("%s_%d.%s.download", strings.TrimSuffix(d.resources[a].ReadName, "."+d.resources[a].Type), i, d.resources[a].Type)
+			d.resources[a].ReadName = fmt.Sprintf("%s_%d.%s", strings.TrimSuffix(d.resources[a].ReadName, "."+d.resources[a].Type), i, d.resources[a].Type)
+		} else {
+			break
 		}
 	}
 	err = d.download(d.resources[a], p)
@@ -199,7 +208,6 @@ func start(d *downloader, a int) (err error) {
 	marker, _ := dl.CreateMarker(d.resources[a].SongDetail, d.resources[a].SongURL)
 	format := strings.Replace(path.Ext(d.resources[a].ReadName), ".", "", -1)
 
-	picPath := d.resources[a+1].TargetDir + "/" + d.resources[a+1].Filename
 	picStat, _ := os.Stat(picPath)
 	if picStat.Size() > 2*1024*1024 {
 		resizePath, err := resizePic(picPath)
