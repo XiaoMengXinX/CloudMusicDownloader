@@ -228,22 +228,24 @@ func start(d *downloader, a int) (err error) {
 		if err != nil {
 			log.Errorln(err)
 		}
-		lrcPath := fmt.Sprintf("%s/%s.lrc", LyricDir, strings.TrimSuffix(d.resources[a].ReadName, path.Ext(d.resources[a].ReadName)))
-		file, err := os.OpenFile(lrcPath, os.O_WRONLY|os.O_CREATE, 0666)
-		if err != nil {
-			log.Printf("[%s] 歌词文件创建失败", d.resources[a].ReadName)
-		} else {
-			defer func(file *os.File) {
-				err := file.Close()
-				if err != nil {
-					log.Println(err)
-				}
-			}(file)
-			write := bufio.NewWriter(file)
-			_, _ = write.WriteString(lyric.Lrc.Lyric)
-			err = write.Flush()
+		if lyric.Lrc.Lyric != "" {
+			lrcPath := fmt.Sprintf("%s/%s.lrc", LyricDir, strings.TrimSuffix(d.resources[a].ReadName, path.Ext(d.resources[a].ReadName)))
+			file, err := os.OpenFile(lrcPath, os.O_WRONLY|os.O_CREATE, 0666)
 			if err != nil {
-				log.Printf("[%s] 歌词文件写入失败", d.resources[a].ReadName)
+				log.Printf("[%s] 歌词文件创建失败", d.resources[a].ReadName)
+			} else {
+				defer func(file *os.File) {
+					err := file.Close()
+					if err != nil {
+						log.Println(err)
+					}
+				}(file)
+				write := bufio.NewWriter(file)
+				_, _ = write.WriteString(lyric.Lrc.Lyric)
+				err = write.Flush()
+				if err != nil {
+					log.Printf("[%s] 歌词文件写入失败", d.resources[a].ReadName)
+				}
 			}
 		}
 	}
