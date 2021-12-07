@@ -36,6 +36,7 @@ var _output = flag.String("path", "", "音乐存放目录 (选填, 默认为./mu
 var _concurrent = flag.Int("c", 4, "并发下载任务数量 (选填, 默认为4. 并发任务越多占用内存越大)")
 var _check = flag.Bool("check", false, "扫描目录下的歌曲")
 var _mp3 = flag.Bool("mp3", false, "强制下载mp3格式")
+var _lyric = flag.Bool("lyric", false, "下载歌词")
 var _debug = flag.Bool("debug", false, "开启debug日志")
 
 var d *downloader
@@ -125,6 +126,10 @@ func main() {
 
 	checkPathExists(MusicDir)
 	checkPathExists(PicDir)
+	if *_lyric {
+		checkPathExists(LyricDir)
+	}
+
 	d = newDownloader()
 	d.Concurrent = *_concurrent
 	d.Pool = make(chan *resource, d.Concurrent)
@@ -218,6 +223,31 @@ func start(d *downloader, a int) (err error) {
 		}
 	}
 
+	if *_lyric {
+		lyric, err := api.GetSongLyric(utils.RequestData{}, d.resources[a].SongDetail.Id)
+		if err != nil {
+			log.Errorln(err)
+		}
+		lrcPath := fmt.Sprintf("%s/%s.lrc", LyricDir, strings.TrimSuffix(d.resources[a].Filename, path.Ext(d.resources[a].Filename)))
+		file, err := os.OpenFile(lrcPath, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			log.Printf("[%s] 歌词文件创建失败", d.resources[a].ReadName)
+		} else {
+			defer func(file *os.File) {
+				err := file.Close()
+				if err != nil {
+					log.Println(err)
+				}
+			}(file)
+			write := bufio.NewWriter(file)
+			_, _ = write.WriteString(lyric.Lrc.Lyric)
+			err = write.Flush()
+			if err != nil {
+				log.Printf("[%s] 歌词文件写入失败", d.resources[a].ReadName)
+			}
+		}
+	}
+
 	if fileExist(d.resources[a].TargetDir+"/"+d.resources[a].Filename) && fileExist(d.resources[a+1].TargetDir+"/"+d.resources[a+1].Filename) {
 		switch format {
 		case "flac":
@@ -288,6 +318,14 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 	_ = json.Unmarshal([]byte(b.Result), &songUrl)
 
 	if songUrl.Api.Data[0].Url != "" && songDetail.Api.Songs[0].Al.PicUrl != "" {
+		var picFile string
+		if songDetail.Api.Songs[0].Al.Pic != 0 {
+			picFile = fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Al.Pic, path.Ext(songDetail.Api.Songs[0].Al.PicUrl))
+		} else if songDetail.Api.Songs[0].Al.Id != 0 {
+			picFile = fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Al.Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl))
+		} else {
+			picFile = fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl))
+		}
 		d.appendResource(
 			MusicDir,
 			replacer.Replace(fmt.Sprintf("%s - %s.%s.download", dl.ParseArtist(songDetail.Api.Songs[0]), songDetail.Api.Songs[0].Name, songUrl.Api.Data[0].Type)),
@@ -300,10 +338,10 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 			false)
 		d.appendResource(
 			PicDir,
-			fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
-			fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
+			picFile,
+			picFile,
 			songDetail.Api.Songs[0].Al.PicUrl,
-			fmt.Sprintf("%d%s", songDetail.Api.Songs[0].Id, path.Ext(songDetail.Api.Songs[0].Al.PicUrl)),
+			picFile,
 			path.Ext(songDetail.Api.Songs[0].Al.PicUrl),
 			types.SongDetailData{},
 			types.SongURLData{},
@@ -318,7 +356,6 @@ func getPlaylistMusic(data utils.RequestData, playListDetail types.PlaylistDetai
 	return
 }
 
-//goland:noinspection GoNilness
 func checkMusic(data utils.RequestData) types.PlaylistDetailData {
 	var musicIDs []int
 	var processFile = 1

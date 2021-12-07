@@ -3,7 +3,7 @@ module github.com/XiaoMengXinX/CloudMusicDownloader
 go 1.17
 
 require (
-	github.com/XiaoMengXinX/Music163Api-Go v0.1.16
+	github.com/XiaoMengXinX/Music163Api-Go v0.1.17
 	github.com/bogem/id3v2 v1.2.0
 	github.com/go-flac/flacpicture v0.2.0
 	github.com/go-flac/flacvorbis v0.1.0

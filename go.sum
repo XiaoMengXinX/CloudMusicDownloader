@@ -1,7 +1,7 @@
 github.com/VividCortex/ewma v1.1.1 h1:MnEK4VOv6n0RSY4vtRe3h11qjxL3+t0B8yOL8iMXdcM=
 github.com/VividCortex/ewma v1.1.1/go.mod h1:2Tkkvm3sRDVXaiyucHiACn4cqf7DpdyLvmxzcbUokwA=
-github.com/XiaoMengXinX/Music163Api-Go v0.1.16 h1:M+OjZPbFZK3fv5qKddCCywhZWlOQUSJAWlXfzxonfrQ=
-github.com/XiaoMengXinX/Music163Api-Go v0.1.16/go.mod h1:4lcWLPwXMsTiwcyM6JBEAHkU7NUvYJOMPtfiUj9X0Jw=
+github.com/XiaoMengXinX/Music163Api-Go v0.1.17 h1:iO4nZeYkyWHSvTH3PnQBNxGcOEZaK9EzK849HfH8y8A=
+github.com/XiaoMengXinX/Music163Api-Go v0.1.17/go.mod h1:4lcWLPwXMsTiwcyM6JBEAHkU7NUvYJOMPtfiUj9X0Jw=
 github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d h1:licZJFw2RwpHMqeKTCYkitsPqHNxTmd4SNR5r94FGM8=
 github.com/acarl005/stripansi v0.0.0-20180116102854-5a71ef0e047d/go.mod h1:asat636LX7Bqt5lYEZ27JNDcqxfjdBQuJ/MM4CN/Lzo=
 github.com/bogem/id3v2 v1.2.0 h1:hKDF+F1gOgQ5r1QmBCEZUk4MveJbKxCeIDSBU7CQ4oI=

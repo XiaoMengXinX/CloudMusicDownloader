@@ -20,6 +20,8 @@ var (
 	PicDir = "./pic"
 	// MusicDir 默认音乐下载目录
 	MusicDir = "./music"
+	// LyricDir 默认歌词下载目录
+	LyricDir = "./lyric"
 )
 
 type resource struct {
