@@ -228,7 +228,7 @@ func start(d *downloader, a int) (err error) {
 		if err != nil {
 			log.Errorln(err)
 		}
-		lrcPath := fmt.Sprintf("%s/%s.lrc", LyricDir, strings.TrimSuffix(d.resources[a].Filename, path.Ext(d.resources[a].Filename)))
+		lrcPath := fmt.Sprintf("%s/%s.lrc", LyricDir, strings.TrimSuffix(d.resources[a].ReadName, path.Ext(d.resources[a].ReadName)))
 		file, err := os.OpenFile(lrcPath, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			log.Printf("[%s] 歌词文件创建失败", d.resources[a].ReadName)
